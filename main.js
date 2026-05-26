@@ -15,6 +15,7 @@ const countries = [
     area: 300,
     emissions: "Very low",
     emissionsScore: 1,
+    co2Contribution: 0.03,
     exposure: { half: 48, one: 72, two: 89 },
     exposedPopulation: { half: 180000, one: 310000, two: 430000 },
     summary: "A low-lying island nation where even moderate sea-level rise could expose a large share of land and population."
@@ -29,6 +30,7 @@ const countries = [
     area: 26,
     emissions: "Very low",
     emissionsScore: 1,
+    co2Contribution: 0.01,
     exposure: { half: 42, one: 66, two: 83 },
     exposedPopulation: { half: 3500, one: 6500, two: 9000 },
     summary: "A small Pacific island country with very limited land area and little room to retreat inland."
@@ -43,6 +45,7 @@ const countries = [
     area: 811,
     emissions: "Very low",
     emissionsScore: 1,
+    co2Contribution: 0.02,
     exposure: { half: 35, one: 58, two: 78 },
     exposedPopulation: { half: 27000, one: 61000, two: 91000 },
     summary: "A nation of atolls spread across the Pacific, where elevation and distance make adaptation especially difficult."
@@ -57,6 +60,7 @@ const countries = [
     area: 181,
     emissions: "Very low",
     emissionsScore: 1,
+    co2Contribution: 0.02,
     exposure: { half: 38, one: 61, two: 80 },
     exposedPopulation: { half: 12000, one: 24000, two: 33000 },
     summary: "A low-lying island nation where land, infrastructure, and freshwater supplies are tightly connected to sea level."
@@ -71,6 +75,7 @@ const countries = [
     area: 10010,
     emissions: "Low",
     emissionsScore: 2,
+    co2Contribution: 0.08,
     exposure: { half: 18, one: 31, two: 49 },
     exposedPopulation: { half: 42000, one: 85000, two: 150000 },
     summary: "A Caribbean archipelago where tourism, housing, and transport infrastructure are concentrated near the coast."
@@ -85,6 +90,7 @@ const countries = [
     area: 22810,
     emissions: "Low",
     emissionsScore: 2,
+    co2Contribution: 0.05,
     exposure: { half: 12, one: 24, two: 41 },
     exposedPopulation: { half: 25000, one: 62000, two: 118000 },
     summary: "A coastal nation where sea-level rise threatens communities, wetlands, and reef-connected economies."
@@ -99,6 +105,7 @@ const countries = [
     area: 130170,
     emissions: "Low per person",
     emissionsScore: 2,
+    co2Contribution: 0.64,
     exposure: { half: 9, one: 17, two: 30 },
     exposedPopulation: { half: 9800000, one: 22600000, two: 40500000 },
     summary: "A densely populated delta country where a smaller exposed land share can still mean millions of people at risk."
@@ -113,6 +120,7 @@ const countries = [
     area: 313430,
     emissions: "Medium",
     emissionsScore: 4,
+    co2Contribution: 1.15,
     exposure: { half: 7, one: 13, two: 22 },
     exposedPopulation: { half: 4200000, one: 9100000, two: 17100000 },
     summary: "A coastal and delta-rich country where sea-level rise could affect major agricultural and urban regions."
@@ -127,6 +135,7 @@ const countries = [
     area: 18270,
     emissions: "Low",
     emissionsScore: 2,
+    co2Contribution: 0.06,
     exposure: { half: 10, one: 19, two: 34 },
     exposedPopulation: { half: 43000, one: 101000, two: 210000 },
     summary: "A Pacific island nation where exposure varies by island, settlement pattern, and available inland land."
@@ -141,6 +150,7 @@ const countries = [
     area: 460,
     emissions: "Low",
     emissionsScore: 2,
+    co2Contribution: 0.04,
     exposure: { half: 22, one: 39, two: 57 },
     exposedPopulation: { half: 15000, one: 31000, two: 52000 },
     summary: "An island country where coastal development and limited land make sea-level exposure especially visible."
@@ -159,8 +169,13 @@ let renderRequest = null;
 
 const mapSvg = d3.select("#world-svg");
 const compareSvg = d3.select("#compare-svg");
+const scatterSvg = d3.select("#scatter-svg");
 const tooltip = d3.select("#tooltip");
 const riseSlider = d3.select("#rise-slider");
+
+const regionColors = d3.scaleOrdinal()
+  .domain(["Pacific", "Caribbean", "Indian Ocean", "Coastal Asia"])
+  .range(["#2d8b84", "#d99b45", "#b84655", "#4c6f9f"]);
 
 function formatPopulation(value) {
   if (value >= 1000000) {
@@ -171,6 +186,10 @@ function formatPopulation(value) {
 
 function visibleCountries() {
   return countries.filter(d => activeRegion === "All" || d.region === activeRegion);
+}
+
+function injusticeScore(country, scenario) {
+  return country.exposure[scenario.key] / country.co2Contribution;
 }
 
 function buildCountryFeatureLookup(world) {
@@ -288,6 +307,7 @@ function renderMap() {
     .on("mouseenter focus click", (event, country) => {
       selectedCountry = country;
       renderDetails();
+      renderEvidence();
       renderMap();
       showTooltip(event, country);
     })
@@ -310,6 +330,7 @@ function renderMap() {
     .on("mouseenter focus click", (event, d) => {
       selectedCountry = d;
       renderDetails();
+      renderEvidence();
       renderMap();
       showTooltip(event, d);
     })
@@ -375,6 +396,7 @@ function renderDetails() {
   d3.select("#country-area").text(`${d3.format(",")(selectedCountry.area)} sq km`);
   d3.select("#country-exposure").text(`${selectedCountry.exposure[scenario.key]}%`);
   d3.select("#country-emissions").text(selectedCountry.emissions);
+  d3.select("#country-injustice").text(d3.format(".1f")(injusticeScore(selectedCountry, scenario)));
   d3.select("#insight-text").text(countryInsight(selectedCountry, scenario));
   renderComparison();
 }
@@ -383,10 +405,10 @@ function countryInsight(country, scenario) {
   const exposure = country.exposure[scenario.key];
   const exposedPeople = country.exposedPopulation[scenario.key];
   if (country.name === "Bangladesh") {
-    return `Bangladesh shows why population matters: ${exposure}% exposed land can still mean ${formatPopulation(exposedPeople)} people in harm's way because the country is so densely populated.`;
+    return `Bangladesh shows why population matters: ${exposure}% exposed land can still mean ${formatPopulation(exposedPeople)} people in harm's way. It is not the highest exposed by land share, but the human stakes are enormous.`;
   }
   if (exposure >= 60 && country.emissionsScore <= 2) {
-    return `${country.name} has ${exposure}% exposed land in this scenario while its emissions contribution is ${country.emissions.toLowerCase()}. This directly supports the project argument that climate risk and climate responsibility are unevenly distributed.`;
+    return `${country.name} has ${exposure}% exposed land in this scenario while its emissions contribution is ${country.emissions.toLowerCase()}. This is the core Sinking Nations argument: climate risk and climate responsibility are unevenly distributed.`;
   }
   if (country.area < 1000) {
     return `${country.name} has very limited land area, so adaptation is not only about building seawalls. There may be few safe places to move people, roads, and services inland.`;
@@ -463,9 +485,158 @@ function renderComparison() {
     .text("highest exposed land share");
 }
 
+function renderEvidence() {
+  renderScatterplot();
+  renderScoreRanking();
+}
+
+function renderScatterplot() {
+  const scenario = scenarios[scenarioIndex];
+  const width = 760;
+  const height = 440;
+  const margin = { top: 42, right: 34, bottom: 72, left: 76 };
+  const x = d3.scaleLog()
+    .domain([0.008, 1.6])
+    .range([margin.left, width - margin.right]);
+  const y = d3.scaleLinear()
+    .domain([0, 95])
+    .range([height - margin.bottom, margin.top]);
+  const size = d3.scaleSqrt()
+    .domain([0, d3.max(countries, d => d.exposedPopulation[scenario.key])])
+    .range([6, 26]);
+
+  scatterSvg.attr("viewBox", `0 0 ${width} ${height}`);
+  scatterSvg.selectAll("*").remove();
+
+  scatterSvg.append("rect")
+    .attr("x", x(0.008))
+    .attr("y", margin.top)
+    .attr("width", x(0.1) - x(0.008))
+    .attr("height", y(0) - margin.top)
+    .attr("fill", "#fff7ef");
+
+  scatterSvg.append("text")
+    .attr("x", x(0.012))
+    .attr("y", margin.top + 22)
+    .attr("fill", "#9a4b54")
+    .attr("font-size", 12)
+    .attr("font-weight", 800)
+    .text("high-risk, low-responsibility zone");
+
+  scatterSvg.append("g")
+    .attr("transform", `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(x).tickValues([0.01, 0.03, 0.1, 0.3, 1]).tickFormat(d => d))
+    .call(g => g.selectAll("text").attr("font-weight", 700));
+
+  scatterSvg.append("g")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d}%`))
+    .call(g => g.select(".domain").remove())
+    .call(g => g.selectAll("text").attr("font-weight", 700));
+
+  scatterSvg.append("text")
+    .attr("x", width / 2)
+    .attr("y", height - 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#445360")
+    .attr("font-size", 13)
+    .attr("font-weight", 800)
+    .text("CO2 contribution index, log scale");
+
+  scatterSvg.append("text")
+    .attr("x", -height / 2)
+    .attr("y", 22)
+    .attr("transform", "rotate(-90)")
+    .attr("text-anchor", "middle")
+    .attr("fill", "#445360")
+    .attr("font-size", 13)
+    .attr("font-weight", 800)
+    .text("sea-level exposure");
+
+  const points = scatterSvg.append("g")
+    .selectAll("circle")
+    .data(countries, d => d.name)
+    .join("circle")
+    .attr("cx", d => x(d.co2Contribution))
+    .attr("cy", d => y(d.exposure[scenario.key]))
+    .attr("r", d => size(d.exposedPopulation[scenario.key]))
+    .attr("fill", d => regionColors(d.region))
+    .attr("stroke", d => d.name === selectedCountry.name ? "#17212b" : "#ffffff")
+    .attr("stroke-width", d => d.name === selectedCountry.name ? 4 : 2)
+    .attr("opacity", 0.9)
+    .style("cursor", "pointer")
+    .on("mouseenter focus click", (event, d) => {
+      selectedCountry = d;
+      renderDetails();
+      renderEvidence();
+      centerOnCountry(d);
+    })
+    .on("mouseleave", () => tooltip.classed("visible", false));
+
+  points.append("title").text(d => `${d.name}: ${d.exposure[scenario.key]}% exposure, ${d.co2Contribution} CO2 index`);
+
+  scatterSvg.append("g")
+    .selectAll("text")
+    .data(countries.filter(d => d.exposure[scenario.key] >= 55 || d.name === "Bangladesh"))
+    .join("text")
+    .attr("x", d => x(d.co2Contribution) + 10)
+    .attr("y", d => y(d.exposure[scenario.key]) - 8)
+    .attr("fill", "#17212b")
+    .attr("font-size", 11)
+    .attr("font-weight", 800)
+    .text(d => d.name);
+
+  const legend = scatterSvg.append("g")
+    .attr("transform", `translate(${width - 190},${margin.top + 4})`);
+
+  regionColors.domain().forEach((region, index) => {
+    const item = legend.append("g").attr("transform", `translate(0,${index * 22})`);
+    item.append("circle")
+      .attr("r", 6)
+      .attr("fill", regionColors(region));
+    item.append("text")
+      .attr("x", 14)
+      .attr("y", 4)
+      .attr("fill", "#445360")
+      .attr("font-size", 12)
+      .attr("font-weight", 700)
+      .text(region);
+  });
+
+  d3.select("#scatter-title").text(scenario.label);
+  d3.select("#scatter-note").text(`${selectedCountry.name}: ${selectedCountry.exposure[scenario.key]}% exposure and ${selectedCountry.co2Contribution} CO2 contribution index.`);
+}
+
+function renderScoreRanking() {
+  const scenario = scenarios[scenarioIndex];
+  const ranked = [...countries]
+    .map(country => ({ country, score: injusticeScore(country, scenario) }))
+    .sort((a, b) => d3.descending(a.score, b.score))
+    .slice(0, 6);
+
+  const items = d3.select("#score-ranking")
+    .selectAll("li")
+    .data(ranked, d => d.country.name)
+    .join("li")
+    .classed("selected", d => d.country.name === selectedCountry.name)
+    .on("click", (_, d) => {
+      selectedCountry = d.country;
+      renderDetails();
+      renderEvidence();
+      centerOnCountry(d.country);
+    });
+
+  items.html(d => `
+    <span>${d.country.name}</span>
+    <strong>${d3.format(".0f")(d.score)}</strong>
+    <small>${d.country.exposure[scenario.key]}% exposure / ${d.country.co2Contribution} CO2 index</small>
+  `);
+}
+
 riseSlider.on("input", event => {
   scenarioIndex = Number(event.target.value);
   renderDetails();
+  renderEvidence();
   renderMap();
 });
 
@@ -478,6 +649,7 @@ d3.selectAll(".region").on("click", event => {
     selectedCountry = data[0] || countries[0];
   }
   renderDetails();
+  renderEvidence();
   renderMap();
 });
 
@@ -502,11 +674,13 @@ d3.select("#center-selected").on("click", () => {
 });
 
 renderDetails();
+renderEvidence();
 renderMap();
 
 d3.json("data/countries-10m.json").then(world => {
   buildCountryFeatureLookup(world);
   renderDetails();
+  renderEvidence();
   renderMap();
 }).catch(() => {
   mapSvg.selectAll("*").remove();

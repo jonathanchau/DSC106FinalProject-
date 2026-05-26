@@ -21,16 +21,16 @@
       </div>
       <div class="hero-stats" aria-label="Prototype focus">
         <div>
-          <span class="stat-value">Map</span>
-          <span class="stat-label">country exposure</span>
+          <span class="stat-value">Globe</span>
+          <span class="stat-label">opening hook</span>
         </div>
         <div>
-          <span class="stat-value">D3</span>
-          <span class="stat-label">interactive page</span>
+          <span class="stat-value">Scatterplot</span>
+          <span class="stat-label">risk vs responsibility</span>
         </div>
         <div>
-          <span class="stat-value">Inequality</span>
-          <span class="stat-label">risk vs contribution</span>
+          <span class="stat-value">Score</span>
+          <span class="stat-label">climate injustice</span>
         </div>
       </div>
     </section>
@@ -75,9 +75,9 @@
 
     <section class="explorer" aria-labelledby="explorer-title">
       <div class="section-heading">
-        <p class="eyebrow">Prototype visualization</p>
-        <h2 id="explorer-title">Explore countries at risk</h2>
-        <p>Select a sea-level rise scenario and rotate the globe. The prototype highlights a small sample of vulnerable nations on an actual world map; the final version will expand this with country-level sea-rise, population, land area, region, and economic indicators.</p>
+        <p class="eyebrow">Opening visual</p>
+        <h2 id="explorer-title">Start with the globe</h2>
+        <p>Select a sea-level rise scenario and rotate the globe. The globe is the hook: it helps readers locate vulnerable nations before the page moves into clearer evidence about risk, responsibility, and climate injustice.</p>
       </div>
 
       <div class="viz-layout">
@@ -135,7 +135,7 @@
         </div>
 
         <aside class="side-panel" aria-labelledby="country-title">
-          <p class="eyebrow">Selected nation</p>
+          <p class="eyebrow">Selected country story</p>
           <h3 id="country-title">Maldives</h3>
           <p id="country-summary">A low-lying island nation where even moderate sea-level rise could expose a large share of land and population.</p>
           <dl class="country-stats">
@@ -159,6 +159,10 @@
               <dt>CO2 share</dt>
               <dd id="country-emissions">Very low</dd>
             </div>
+            <div>
+              <dt>Injustice score</dt>
+              <dd id="country-injustice">72.0</dd>
+            </div>
           </dl>
           <div class="insight-card">
             <h4>Why this matters</h4>
@@ -167,6 +171,43 @@
           <svg id="compare-svg" role="img" aria-label="Exposure comparison chart"></svg>
           <p class="hint">Drag the globe or use the rotation buttons. Highlight color represents exposed land share, and circles show exposed population.</p>
         </aside>
+      </div>
+    </section>
+
+    <section class="evidence" aria-labelledby="evidence-title">
+      <div class="section-heading">
+        <p class="eyebrow">Evidence</p>
+        <h2 id="evidence-title">Risk does not match responsibility</h2>
+        <p>The scatterplot turns the project argument into a direct comparison. Countries high on the chart face more sea-level exposure; countries farther right have a larger CO2 contribution index. The most important cases are high and left.</p>
+      </div>
+
+      <div class="evidence-layout">
+        <article class="scatter-panel">
+          <div class="chart-heading">
+            <div>
+              <p class="meta-label">Risk vs responsibility</p>
+              <h3 id="scatter-title">1.0 meter sea-level rise</h3>
+            </div>
+            <p id="scatter-note">High exposure with low CO2 contribution is the climate injustice pattern.</p>
+          </div>
+          <svg id="scatter-svg" role="img" aria-label="Scatterplot comparing sea-level exposure and CO2 contribution"></svg>
+        </article>
+
+        <aside class="ranking-panel" aria-labelledby="ranking-title">
+          <p class="eyebrow">Unique takeaway</p>
+          <h3 id="ranking-title">Climate Injustice Score</h3>
+          <p class="score-formula">Score = sea-level exposure / CO2 contribution index</p>
+          <ol id="score-ranking" class="score-ranking"></ol>
+          <p class="hint">This is a prototype metric using sample values. In the final version, the same idea should use cleaned emissions and exposure data.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="takeaway-band" aria-labelledby="takeaway-title">
+      <div>
+        <p class="eyebrow">Final takeaway</p>
+        <h2 id="takeaway-title">The countries with the most to lose are not always the countries that caused the most warming.</h2>
+        <p>Sinking Nations should lead readers from place, to people, to proof: first locate vulnerable nations on the globe, then read their country stories, then compare exposure against climate responsibility.</p>
       </div>
     </section>
 
