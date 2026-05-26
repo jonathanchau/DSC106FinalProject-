@@ -15,23 +15,8 @@
   <main>
     <section class="hero" aria-labelledby="title">
       <div class="hero-copy">
-        <p class="eyebrow">DSC 106 final project prototype</p>
         <h1 id="title">Sinking Nations</h1>
         <p class="lede">Rising seas are often described as a global trend, but the danger is not spread evenly. Low-lying islands and coastal nations face very different levels of exposure depending on their land, population, income, and geography.</p>
-      </div>
-      <div class="hero-stats" aria-label="Prototype focus">
-        <div>
-          <span class="stat-value">Globe</span>
-          <span class="stat-label">opening hook</span>
-        </div>
-        <div>
-          <span class="stat-value">Scatterplot</span>
-          <span class="stat-label">risk vs responsibility</span>
-        </div>
-        <div>
-          <span class="stat-value">Score</span>
-          <span class="stat-label">climate injustice</span>
-        </div>
       </div>
     </section>
 
@@ -75,21 +60,20 @@
 
     <section class="explorer" aria-labelledby="explorer-title">
       <div class="section-heading">
-        <p class="eyebrow">Opening visual</p>
-        <h2 id="explorer-title">Start with the globe</h2>
-        <p>Select a sea-level rise scenario and rotate the globe. The globe is the hook: it helps readers locate vulnerable nations before the page moves into clearer evidence about risk, responsibility, and climate injustice.</p>
+        <h2 id="explorer-title">Explore sea-level rise country by country</h2>
+        <p>Move the sea-level rise slider from 0 to 2 meters. The map estimates how much land and population could be exposed for each selected country.</p>
       </div>
 
-      <div class="viz-layout">
+      <div class="viz-layout map-story-layout">
         <div class="map-panel">
           <div class="toolbar" aria-label="Visualization controls">
             <div class="slider-wrap">
-              <label for="rise-slider">Sea-level rise scenario</label>
-              <input id="rise-slider" type="range" min="0" max="2" step="1" value="1">
+              <label for="rise-slider" class="control-label">Sea-level rise</label>
+              <input id="rise-slider" type="range" min="0" max="2" step="0.1" value="1">
               <div class="scenario-labels" aria-hidden="true">
-                <span>0.5 m</span>
-                <span>1.0 m</span>
-                <span>2.0 m</span>
+                <span>0 m</span>
+                <strong id="rise-value">1.0 m</strong>
+                <span>2 m</span>
               </div>
             </div>
             <div class="region-filter" role="group" aria-label="Region filter">
@@ -103,8 +87,8 @@
 
           <div class="map-meta">
             <div>
-              <p class="meta-label">Scenario</p>
-              <h3 id="scenario-title">1.0 meter sea-level rise</h3>
+              <p class="meta-label">Current sea-level rise</p>
+              <h3 id="scenario-title">1.0 meter</h3>
             </div>
             <div class="metric-strip">
               <div>
@@ -120,17 +104,9 @@
 
           <div class="map-stage">
             <svg id="world-svg" role="img" aria-labelledby="map-title map-desc"></svg>
-            <h3 id="map-title" class="sr-only">Globe of vulnerable nations</h3>
-            <p id="map-desc" class="sr-only">A D3 globe with actual country shapes and highlighted nations vulnerable to sea-level rise.</p>
+            <h3 id="map-title" class="sr-only">Map of vulnerable nations</h3>
+            <p id="map-desc" class="sr-only">A D3 world map with actual country shapes and highlighted nations vulnerable to sea-level rise.</p>
             <div class="tooltip" id="tooltip"></div>
-          </div>
-          <div class="globe-controls" aria-label="Globe rotation controls">
-            <button type="button" data-rotate="left" aria-label="Rotate globe left">Left</button>
-            <button type="button" data-rotate="right" aria-label="Rotate globe right">Right</button>
-            <button type="button" data-rotate="up" aria-label="Rotate globe up">Up</button>
-            <button type="button" data-rotate="down" aria-label="Rotate globe down">Down</button>
-            <button type="button" id="center-selected">Center selected</button>
-            <button type="button" id="reset-globe">Reset</button>
           </div>
         </div>
 
@@ -152,75 +128,36 @@
               <dd id="country-area">300 sq km</dd>
             </div>
             <div>
-              <dt>Exposure</dt>
+              <dt>Exposed land</dt>
               <dd id="country-exposure">72%</dd>
             </div>
             <div>
-              <dt>CO2 share</dt>
-              <dd id="country-emissions">Very low</dd>
+              <dt>Impacted area</dt>
+              <dd id="country-impacted-area">216 sq km</dd>
             </div>
             <div>
-              <dt>Injustice score</dt>
-              <dd id="country-injustice">72.0</dd>
+              <dt>People exposed</dt>
+              <dd id="country-exposed-population">310K</dd>
             </div>
           </dl>
           <div class="insight-card">
             <h4>Why this matters</h4>
             <p id="insight-text">This country combines high exposure with a small climate footprint, showing why sea-level risk is also a climate justice issue.</p>
           </div>
-          <svg id="compare-svg" role="img" aria-label="Exposure comparison chart"></svg>
-          <p class="hint">Drag the globe or use the rotation buttons. Highlight color represents exposed land share, and circles show exposed population.</p>
+          <p class="hint">Hover previews a country. Click selects it and updates the impact estimates.</p>
         </aside>
-      </div>
-    </section>
-
-    <section class="evidence" aria-labelledby="evidence-title">
-      <div class="section-heading">
-        <p class="eyebrow">Evidence</p>
-        <h2 id="evidence-title">Risk does not match responsibility</h2>
-        <p>The scatterplot turns the project argument into a direct comparison. Countries high on the chart face more sea-level exposure; countries farther right have a larger CO2 contribution index. The most important cases are high and left.</p>
-      </div>
-
-      <div class="evidence-layout">
-        <article class="scatter-panel">
-          <div class="chart-heading">
-            <div>
-              <p class="meta-label">Risk vs responsibility</p>
-              <h3 id="scatter-title">1.0 meter sea-level rise</h3>
-            </div>
-            <p id="scatter-note">High exposure with low CO2 contribution is the climate injustice pattern.</p>
-          </div>
-          <svg id="scatter-svg" role="img" aria-label="Scatterplot comparing sea-level exposure and CO2 contribution"></svg>
-        </article>
-
-        <aside class="ranking-panel" aria-labelledby="ranking-title">
-          <p class="eyebrow">Unique takeaway</p>
-          <h3 id="ranking-title">Climate Injustice Score</h3>
-          <p class="score-formula">Score = sea-level exposure / CO2 contribution index</p>
-          <ol id="score-ranking" class="score-ranking"></ol>
-          <p class="hint">This is a prototype metric using sample values. In the final version, the same idea should use cleaned emissions and exposure data.</p>
-        </aside>
-      </div>
-    </section>
-
-    <section class="takeaway-band" aria-labelledby="takeaway-title">
-      <div>
-        <p class="eyebrow">Final takeaway</p>
-        <h2 id="takeaway-title">The countries with the most to lose are not always the countries that caused the most warming.</h2>
-        <p>Sinking Nations should lead readers from place, to people, to proof: first locate vulnerable nations on the globe, then read their country stories, then compare exposure against climate responsibility.</p>
       </div>
     </section>
 
     <section class="writeup" aria-labelledby="writeup-title">
       <div class="section-heading">
-        <p class="eyebrow">Initial prototype writeup</p>
         <h2 id="writeup-title">Progress and challenges</h2>
       </div>
 
       <div class="writeup-grid">
         <article>
           <h3>What have we done so far?</h3>
-          <p>So far, we have reframed the website around our final project idea, Sinking Nations. The project explores how rising sea levels threaten low-lying islands and coastal nations around the world. Instead of only presenting sea-level rise as a global trend, the prototype makes the issue more concrete by showing selected countries and comparing their vulnerability. We built a D3-based interactive globe where users can change the sea-level rise scenario, filter by region, rotate the world, and hover over country markers to see exposure details. We also added a side panel that connects exposure to population, land area, region, and climate inequality. This gives us the basic structure for an explorable explanation rather than a static dashboard.</p>
+          <p>So far, we have built Sinking Nations around an interactive country map. Users can move a sea-level rise slider from 0 to 2 meters, hover over vulnerable nations, and see estimated exposed land, impacted area, and exposed population update in the story card. This keeps the project focused on the geographic and human stakes of sea-level rise.</p>
         </article>
         <article>
           <h3>What will be most challenging to design, and why?</h3>
@@ -232,7 +169,7 @@
     <section class="sources" aria-labelledby="sources-title">
       <h2 id="sources-title">Data plan and next steps</h2>
       <p>The final project should combine sea-level rise or coastal exposure data with country-level indicators such as population, land area, region, GDP or income group, and emissions contribution. Potential sources include World Bank indicators, Our World in Data emissions data, and coastal exposure or elevation datasets.</p>
-      <p>Next step: replace the sample data in this prototype with a cleaned CSV of real country-level values, then add annotations that explain the strongest examples of unequal climate risk.</p>
+      <p>Next step: replace the sample exposure curves with cleaned real country-level coastal exposure data so the slider estimates are transparent and defensible.</p>
     </section>
   </main>
 
