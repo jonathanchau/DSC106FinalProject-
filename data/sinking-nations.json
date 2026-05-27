@@ -1,0 +1,16 @@
+{
+  "project": "Sinking Nations",
+  "description": "Vulnerability and economic capacity regarding sea-level rise.",
+  "nations": [
+    { "Country": "Maldives", "Region": "Indian Ocean", "Land_Below_5m_Pct": 80.5, "Emissions_Per_Capita": 4.4, "Pop_At_Risk_Millions": 0.42 },
+    { "Country": "Tuvalu", "Region": "Pacific", "Land_Below_5m_Pct": 68.0, "Emissions_Per_Capita": 1.2, "Pop_At_Risk_Millions": 0.01 },
+    { "Country": "Marshall Islands", "Region": "Pacific", "Land_Below_5m_Pct": 81.7, "Emissions_Per_Capita": 4.1, "Pop_At_Risk_Millions": 0.03 },
+    { "Country": "Kiribati", "Region": "Pacific", "Land_Below_5m_Pct": 67.6, "Emissions_Per_Capita": 0.5, "Pop_At_Risk_Millions": 0.09 },
+    { "Country": "Bahamas", "Region": "Caribbean", "Land_Below_5m_Pct": 69.7, "Emissions_Per_Capita": 7.6, "Pop_At_Risk_Millions": 0.28 },
+    { "Country": "Netherlands", "Region": "Europe", "Land_Below_5m_Pct": 52.0, "Emissions_Per_Capita": 6.3, "Pop_At_Risk_Millions": 9.10 },
+    { "Country": "Bangladesh", "Region": "Coastal Asia", "Land_Below_5m_Pct": 18.0, "Emissions_Per_Capita": 0.5, "Pop_At_Risk_Millions": 30.78 },
+    { "Country": "Vietnam", "Region": "Coastal Asia", "Land_Below_5m_Pct": 15.0, "Emissions_Per_Capita": 2.5, "Pop_At_Risk_Millions": 14.71 },
+    { "Country": "United States", "Region": "North America", "Land_Below_5m_Pct": 4.0, "Emissions_Per_Capita": 14.5, "Pop_At_Risk_Millions": 13.20 },
+    { "Country": "China", "Region": "East Asia", "Land_Below_5m_Pct": 3.0, "Emissions_Per_Capita": 7.8, "Pop_At_Risk_Millions": 42.00 }
+  ]
+}
