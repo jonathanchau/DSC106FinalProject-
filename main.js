@@ -31,6 +31,9 @@ const projection = d3.geoOrthographic()
   .clipAngle(90);
 const path = d3.geoPath(projection);
 
+// Interaction state for smoother hover-driven globe movement.
+let hoverIntentTimer = null;
+
 // --- UTILS ---
 function formatPopulation(value) {
   if (value >= 1000000) return `${d3.format(".1f")(value / 1000000)}M`;
@@ -60,58 +63,292 @@ function activeCountry() { return previewCountry || selectedCountry; }
 
 // --- THE SPIN ENGINE ---
 // --- THE OPTIMIZED SPIN ENGINE ---
-function spinGlobeTo(country) {
+// function spinGlobeTo(country) {
+//   if (!country || !country.centroid) return;
+//   const targetLon = -country.centroid[0];
+//   const targetLat = -country.centroid[1];
+
+//   // 800ms is faster and feels snappier than 1200ms
+//   d3.transition().duration(800).ease(d3.easeQuadOut)
+//     .tween("rotate", function() {
+//       const r = d3.interpolate(projection.rotate(), [targetLon, targetLat, 0]);
+//       return function(t) {
+//         projection.rotate(r(t));
+        
+//         // OPTIMIZATION 1: Only redraw the land and graticule. Leave the ocean alone!
+//         mapSvg.select(".land").attr("d", path);
+//         mapSvg.select(".graticule").attr("d", path);
+        
+//         // OPTIMIZATION 2: Cache the current rotation center so we don't calculate it 50 times per frame
+//         const currentRot = projection.rotate();
+//         const center = [-currentRot[0], -currentRot[1]];
+
+//         mapSvg.selectAll(".map-bubble")
+//           .attr("cx", d => projection(d.centroid)[0])
+//           .attr("cy", d => projection(d.centroid)[1])
+//           // Use a raw math threshold (1.57 is ~90 degrees) instead of calling the heavy geoDistance function
+//           .style("display", d => d3.geoDistance(d.centroid, center) > 1.57 ? "none" : "block"); 
+//       };
+//     });
+// }
+
+// --- FIXED SPIN ENGINE
+function updateGlobeFrame() {
+  mapSvg.select(".land").attr("d", path);
+  mapSvg.select(".graticule").attr("d", path);
+
+  const currentRot = projection.rotate();
+  const center = [-currentRot[0], -currentRot[1]];
+
+  mapSvg.selectAll(".map-bubble, .map-hitbox")
+    .attr("cx", d => projection(d.centroid)[0])
+    .attr("cy", d => projection(d.centroid)[1])
+    .style("display", d => d3.geoDistance(d.centroid, center) > Math.PI / 2 ? "none" : "block");
+}
+
+// Pick the closest equivalent longitude so the globe does not spin the long way.
+function shortestLongitudeTarget(from, to) {
+  const diff = ((to - from + 540) % 360) - 180;
+  return from + diff;
+}
+
+// --- UPDATED spinGlobeTo() ---
+function spinGlobeTo(country, duration = null) {
   if (!country || !country.centroid) return;
-  const targetLon = -country.centroid[0];
-  const targetLat = -country.centroid[1];
 
-  // 800ms is faster and feels snappier than 1200ms
-  d3.transition().duration(800).ease(d3.easeQuadOut)
-    .tween("rotate", function() {
-      const r = d3.interpolate(projection.rotate(), [targetLon, targetLat, 0]);
-      return function(t) {
-        projection.rotate(r(t));
-        
-        // OPTIMIZATION 1: Only redraw the land and graticule. Leave the ocean alone!
-        mapSvg.select(".land").attr("d", path);
-        mapSvg.select(".graticule").attr("d", path);
-        
-        // OPTIMIZATION 2: Cache the current rotation center so we don't calculate it 50 times per frame
-        const currentRot = projection.rotate();
-        const center = [-currentRot[0], -currentRot[1]];
+  const start = projection.rotate();
 
-        mapSvg.selectAll(".map-bubble")
-          .attr("cx", d => projection(d.centroid)[0])
-          .attr("cy", d => projection(d.centroid)[1])
-          // Use a raw math threshold (1.57 is ~90 degrees) instead of calling the heavy geoDistance function
-          .style("display", d => d3.geoDistance(d.centroid, center) > 1.57 ? "none" : "block"); 
+  const rawTarget = [
+    -country.centroid[0],
+    -country.centroid[1],
+    0
+  ];
+
+  // Use the closest longitude version of the target
+  // to prevents huge unnecessary spins between nearby countries.
+  const target = [
+    shortestLongitudeTarget(start[0], rawTarget[0]),
+    rawTarget[1],
+    0
+  ];
+
+  const lonDistance = Math.abs(target[0] - start[0]);
+  const latDistance = Math.abs(target[1] - start[1]);
+  const totalDistance = Math.sqrt(lonDistance ** 2 + latDistance ** 2);
+
+  const alreadyThere = totalDistance < 0.1;
+
+  if (alreadyThere) {
+    updateGlobeFrame();
+    return;
+  }
+
+  const smartDuration = duration ?? Math.max(350, Math.min(900, totalDistance * 6));
+
+  mapSvg.interrupt("spin");
+
+  mapSvg.transition("spin")
+    .duration(smartDuration)
+    .ease(d3.easeCubicOut)
+    .tween("rotate", () => {
+      const rotate = d3.interpolate(start, target);
+
+      return t => {
+        projection.rotate(rotate(t));
+        updateGlobeFrame();
       };
     });
 }
 
+// --- DRAG TO ROTATE GLOBE ---
+let isDraggingGlobe = false;
+let didDragGlobe = false;
+let dragStartPoint = null;
+let dragStartRotate = null;
+let lastGlobeDragTime = 0;
+
+function recentlyDraggedGlobe() {
+  return Date.now() - lastGlobeDragTime < 250;
+}
+
+const globeDrag = d3.drag()
+  .filter(event => {
+    // Only allow normal left-click dragging.
+    return !event.ctrlKey && !event.button;
+  })
+  .on("start", event => {
+    isDraggingGlobe = true;
+    didDragGlobe = false;
+
+    dragStartPoint = [event.x, event.y];
+    dragStartRotate = projection.rotate().slice();
+
+    clearTimeout(hoverIntentTimer);
+    mapSvg.interrupt("spin");
+
+    mapSvg.style("cursor", "grabbing");
+  })
+  .on("drag", event => {
+    const dx = event.x - dragStartPoint[0];
+    const dy = event.y - dragStartPoint[1];
+
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      didDragGlobe = true;
+      clearPreview();
+    }
+
+    const sensitivity = 0.28;
+
+    const newRotate = [
+      dragStartRotate[0] + dx * sensitivity,
+      dragStartRotate[1] - dy * sensitivity,
+      dragStartRotate[2] || 0
+    ];
+
+    // Prevent vertical flipping.
+    newRotate[1] = Math.max(-75, Math.min(75, newRotate[1]));
+
+    projection.rotate(newRotate);
+    updateGlobeFrame();
+  })
+  .on("end", () => {
+    isDraggingGlobe = false;
+
+    if (didDragGlobe) {
+      lastGlobeDragTime = Date.now();
+    }
+
+    mapSvg.style("cursor", "grab");
+
+    setTimeout(() => {
+      didDragGlobe = false;
+    }, 250);
+  });
+
+mapSvg
+  .style("cursor", "grab")
+  .style("touch-action", "none")
+  .call(globeDrag);
+
+// function spinGlobeTo(country, duration = 650) {
+//   if (!country || !country.centroid) return;
+
+//   const target = [-country.centroid[0], -country.centroid[1], 0];
+//   const start = projection.rotate();
+
+//   const alreadyThere =
+//     Math.abs(start[0] - target[0]) < 0.1 &&
+//     Math.abs(start[1] - target[1]) < 0.1;
+
+//   if (alreadyThere) {
+//     updateGlobeFrame();
+//     return;
+//   }
+
+//   // Interrupt only the previous globe spin, not the bubble color/size transitions.
+//   mapSvg.interrupt("spin");
+
+//   mapSvg.transition("spin")
+//     .duration(duration)
+//     .ease(d3.easeCubicOut)
+//     .tween("rotate", () => {
+//       const rotate = d3.interpolate(start, target);
+
+//       return t => {
+//         projection.rotate(rotate(t));
+//         updateGlobeFrame();
+//       };
+//     });
+// }
+
+function updateSelectionStyles() {
+  const current = activeCountry();
+
+  mapSvg.selectAll(".map-bubble")
+    .interrupt("bubble-style")
+    .transition("bubble-style")
+    .duration(180)
+    .attr("stroke", d => d.name === current.name ? "#ffffff" : "rgba(255,255,255,0.3)")
+    .attr("stroke-width", d => d.name === current.name ? 3 : 1);
+
+  scatterSvg.select(".marks").selectAll("circle")
+    .interrupt("scatter-style")
+    .transition("scatter-style")
+    .duration(180)
+    .attr("stroke", d => d.name === current.name ? "#17212b" : "#ffffff")
+    .attr("stroke-width", d => d.name === current.name ? 3 : 1);
+}
+
 // --- INTERACTIONS ---
+// function previewSelection(country) {
+//   previewCountry = country;
+//   renderDetails(country);
+//   spinGlobeTo(country);
+//   renderMap();
+//   renderScatter();
+// }
+
+// function clearPreview() {
+//   if (!previewCountry) return;
+//   previewCountry = null;
+//   renderDetails(selectedCountry);
+//   spinGlobeTo(selectedCountry);
+//   renderMap();
+//   renderScatter();
+// }
+
+// function commitSelection(country) {
+//   selectedCountry = country;
+//   previewCountry = null;
+//   renderDetails(country);
+//   spinGlobeTo(country);
+//   renderMap();
+//   renderScatter();
+// }
+
+// --- UPDATED INTERACTIONS ---
 function previewSelection(country) {
+  if (!country || (previewCountry && previewCountry.name === country.name)) return;
+
   previewCountry = country;
+  // Hover only previews the country.
+  // Do NOT rotate the globe here.
   renderDetails(country);
-  spinGlobeTo(country);
-  renderMap();
-  renderScatter();
+  updateSelectionStyles();
+}
+
+function queuePreviewSelection(country) {
+  if (isDraggingGlobe) return;
+
+  clearTimeout(hoverIntentTimer);
+  hoverIntentTimer = setTimeout(() => previewSelection(country), 60);
 }
 
 function clearPreview() {
+  clearTimeout(hoverIntentTimer);
+
   if (!previewCountry) return;
+
   previewCountry = null;
+  // Go back to showing the selected country details.
+  // Do NOT rotate the globe back here.
   renderDetails(selectedCountry);
-  spinGlobeTo(selectedCountry);
-  renderMap();
-  renderScatter();
+  updateSelectionStyles();
 }
 
 function commitSelection(country) {
+  clearTimeout(hoverIntentTimer);
+
+  if (!country) return;
+
   selectedCountry = country;
   previewCountry = null;
+
   renderDetails(country);
+
+  // Click selects the country and rotates the globe toward it.
   spinGlobeTo(country);
+
   renderMap();
   renderScatter();
 }
@@ -147,7 +384,15 @@ function renderMap() {
   }
 
   // Update Bubbles
-  const bubbleGroup = mapSvg.select(".bubbles").empty() ? mapSvg.append("g").attr("class", "bubbles") : mapSvg.select(".bubbles");
+  const bubbleGroup = mapSvg.select(".bubbles").empty()
+    ? mapSvg.append("g").attr("class", "bubbles")
+    : mapSvg.select(".bubbles");
+
+  // Make small bubbles easier to hover/click
+  // without changing the actual visual bubble size.
+  const hitboxGroup = mapSvg.select(".bubble-hitboxes").empty()
+    ? mapSvg.append("g").attr("class", "bubble-hitboxes")
+    : mapSvg.select(".bubble-hitboxes");
   
   bubbleGroup.selectAll("circle").data(data, d => d.name)
     .join("circle")
@@ -156,15 +401,36 @@ function renderMap() {
     .attr("cy", d => projection(d.centroid)[1])
     .attr("fill-opacity", 0.8)
     .style("display", d => d3.geoDistance(d.centroid, [-projection.rotate()[0], -projection.rotate()[1]]) > Math.PI / 2 ? "none" : "block")
-    .style("cursor", "pointer")
-    .on("mouseenter focus", (e, d) => previewSelection(d))
-    .on("click", (e, d) => commitSelection(d))
-    .on("mouseleave", clearPreview)
-    .transition().duration(800).ease(d3.easeCubicOut) // LIQUID MAP TRANSITION
+    .style("pointer-events", "none")
+    // .style("cursor", "pointer")
+    // .on("mouseenter focus", (e, d) => previewSelection(d))
+    // .on("click", (e, d) => commitSelection(d))
+    // .transition().duration(800).ease(d3.easeCubicOut) // LIQUID MAP TRANSITION
+    .transition("bubble-style").duration(500).ease(d3.easeCubicOut)
     .attr("r", d => radius(impactFor(d).population))
     .attr("fill", d => exposureColor(impactFor(d).exposure))
     .attr("stroke", d => d.name === current.name ? "#ffffff" : "rgba(255,255,255,0.3)")
     .attr("stroke-width", d => d.name === current.name ? 3 : 1);
+
+    // Separate invisible circles for better interaction without affecting visual style.
+    hitboxGroup.selectAll("circle").data(data, d => d.name)
+      .join("circle")
+      .attr("class", "map-hitbox")
+      .attr("cx", d => projection(d.centroid)[0])
+      .attr("cy", d => projection(d.centroid)[1])
+      .attr("r", d => Math.max(20, radius(impactFor(d).population) + 6))
+      .attr("fill", "transparent")
+      .style("display", d => d3.geoDistance(d.centroid, [-projection.rotate()[0], -projection.rotate()[1]]) > Math.PI / 2 ? "none" : "block")
+      .style("cursor", "pointer")
+      .on("mouseenter focus", (e, d) => queuePreviewSelection(d))
+      .on("mouseleave blur", clearPreview)
+      .on("click", (e, d) => {
+        e.stopPropagation();
+
+        if (recentlyDraggedGlobe()) return;
+
+        commitSelection(d);
+      });
 
   const highest = d3.greatest(data, d => impactFor(d).exposure);
   d3.select("#highest-risk").text(highest ? highest.name : "None");
@@ -221,10 +487,18 @@ function renderScatter() {
       exit => exit.transition().duration(400).attr("r", 0).remove()
     )
     .style("cursor", "pointer")
-    .on("mouseenter", (e, d) => previewSelection(d))
-    .on("click", (e, d) => commitSelection(d))
+    // .on("mouseenter", (e, d) => previewSelection(d))
+    // .on("click", (e, d) => commitSelection(d))
+    // .on("mouseleave", clearPreview)
+    // .transition().duration(800).ease(d3.easeElasticOut) // BOUNCE EFFECT
+    .on("mouseenter", (e, d) => queuePreviewSelection(d))
+    .on("click", (e, d) => {
+      e.stopPropagation();
+      if (recentlyDraggedGlobe()) return;
+      commitSelection(d);
+    })
     .on("mouseleave", clearPreview)
-    .transition().duration(800).ease(d3.easeElasticOut) // BOUNCE EFFECT
+    .transition("scatter-style").duration(500).ease(d3.easeCubicOut)
     .attr("cx", d => xScale(d.emissions))
     .attr("cy", d => yScale(impactFor(d).exposure))
     .attr("r", d => rScale(impactFor(d).population))
@@ -246,6 +520,10 @@ function renderDetails(country = activeCountry()) {
   d3.select("#country-emissions").text(country.emissions);
   d3.select("#country-injustice").text(impact.exposure.toFixed(1));
 }
+
+// the globe moves circles under the cursor.
+d3.select(".map-stage")
+  .on("mouseleave", clearPreview);
 
 // --- UI EVENT LISTENERS ---
 d3.selectAll(".scenario-option").on("click", function(event) {
